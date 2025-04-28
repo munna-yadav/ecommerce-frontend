@@ -1,71 +1,93 @@
-
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogIn, Mail, Lock } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import Login from "@/components/auth/Login";
+import Register from "@/components/auth/Register";
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Lock } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Auth = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  
+  // Parse tab from URL query string
+  const searchParams = new URLSearchParams(location.search);
+  const tabParam = searchParams.get('tab');
+  const defaultTab = tabParam === 'register' ? 'register' : 'login';
+  
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // Update URL to reflect current tab without page reload
+    navigate(`/auth?tab=${value}`, { replace: true });
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-white p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-gray-900">Welcome</CardTitle>
-          <CardDescription>Sign in to your account or create a new one</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="register">Register</TabsTrigger>
-            </TabsList>
-            <TabsContent value="login">
-              <form className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <Input id="email" type="email" placeholder="Enter your email" className="pl-10" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <Input id="password" type="password" placeholder="Enter your password" className="pl-10" />
-                  </div>
-                </div>
-                <Button className="w-full bg-purple-600 hover:bg-purple-700">
-                  <LogIn className="mr-2 h-5 w-5" /> Sign In
-                </Button>
-              </form>
-            </TabsContent>
-            <TabsContent value="register">
-              <form className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <Input id="register-email" type="email" placeholder="Enter your email" className="pl-10" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <Input id="register-password" type="password" placeholder="Create a password" className="pl-10" />
-                  </div>
-                </div>
-                <Button className="w-full bg-purple-600 hover:bg-purple-700">
-                  Create Account
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+    <div className="container mx-auto flex items-center justify-center min-h-screen px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="mx-auto bg-purple-100 p-3 rounded-full w-16 h-16 flex items-center justify-center mb-4">
+            <Lock className="h-8 w-8 text-purple-600" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome to ShopEase</h1>
+          <p className="text-gray-500 mt-2">Sign in to your account or create a new one</p>
+        </div>
+
+        <Card>
+          <CardHeader className="p-0">
+            <Tabs
+              defaultValue={activeTab}
+              value={activeTab}
+              onValueChange={handleTabChange}
+              className="w-full"
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="register">Register</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="login" className="p-6">
+                <CardTitle className="mb-1">Sign In</CardTitle>
+                <CardDescription className="mb-4">
+                  Enter your credentials to access your account
+                </CardDescription>
+                <Login />
+              </TabsContent>
+              
+              <TabsContent value="register" className="p-6">
+                <CardTitle className="mb-1">Create Account</CardTitle>
+                <CardDescription className="mb-4">
+                  Fill in your details to create a new account
+                </CardDescription>
+                <Register />
+              </TabsContent>
+            </Tabs>
+          </CardHeader>
+        </Card>
+        
+        <div className="mt-6 text-center text-sm text-gray-500">
+          <p>
+            By continuing, you agree to our{' '}
+            <a href="/terms" className="text-purple-600 hover:text-purple-500">
+              Terms of Service
+            </a>{' '}
+            and{' '}
+            <a href="/privacy" className="text-purple-600 hover:text-purple-500">
+              Privacy Policy
+            </a>
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
