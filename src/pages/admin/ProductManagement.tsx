@@ -51,7 +51,8 @@ interface Product {
   name: string;
   description: string;
   price: number;
-  stock: number | null; // Changed from quantity to stock
+  quantity: number | null; // This will be used for display
+  stock?: number; // Changed to stock instead of stockQuantity
   image: string | null;
 }
 
@@ -60,7 +61,8 @@ const initialProductState: Omit<Product, 'id'> = {
   name: '',
   description: '',
   price: 0,
-  stock: 0, // Changed from quantity to stock
+  quantity: 0,
+  stock: 0, // Using stock instead of stockQuantity
   image: null
 };
 
@@ -102,11 +104,32 @@ const ProductManagement = () => {
     const fetchProducts = async () => {
       setIsLoading(true);
       try {
+        console.log('Fetching products for admin...');
+        
+        // Using relative path with proxy
         const response = await axios.get('/api/v1/product/get');
-        setProducts(response.data);
-      } catch (error) {
+        
+        console.log('API Response:', response.data);
+        
+        if (response.data && Array.isArray(response.data)) {
+          setProducts(response.data);
+          console.log('Products set:', response.data.length);
+        } else {
+          console.error('Unexpected response format:', response.data);
+          setProducts([]);
+          toast.error('Received invalid data format from API');
+        }
+      } catch (error: any) {
         console.error('Error fetching products:', error);
-        toast.error('Failed to load products. Please try again.');
+        
+        // More detailed error logging
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+        }
+        
+        toast.error(`Failed to load products: ${error.message || 'Unknown error'}`);
+        setProducts([]);
       } finally {
         setIsLoading(false);
       }
@@ -123,7 +146,7 @@ const ProductManagement = () => {
 
   // Sort products
   const sortedProducts = [...filteredProducts].sort((a, b) => {
-    if (sortField === 'price' || sortField === 'stock') {
+    if (sortField === 'price' || sortField === 'quantity') {
       const aValue = a[sortField] || 0;
       const bValue = b[sortField] || 0;
       return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
@@ -149,10 +172,13 @@ const ProductManagement = () => {
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    if (name === 'price' || name === 'stock') {
+    if (name === 'price' || name === 'quantity') {
+      const numValue = parseFloat(value) || 0;
       setProductForm({
         ...productForm,
-        [name]: parseFloat(value) || 0
+        [name]: numValue,
+        // When quantity is updated, update stock too
+        ...(name === 'quantity' ? { stock: numValue } : {})
       });
     } else {
       setProductForm({
@@ -183,6 +209,7 @@ const ProductManagement = () => {
       name: product.name,
       description: product.description,
       price: product.price,
+      quantity: product.quantity || 0,
       stock: product.stock || 0,
       image: product.image
     });
@@ -202,31 +229,35 @@ const ProductManagement = () => {
     setFormSubmitting(true);
 
     try {
-      // First create the product using the correct endpoint
-      const productResponse = await axios.post('/api/v1/product/add', {
-        name: productForm.name,
-        description: productForm.description,
-        price: productForm.price,
-        stock: productForm.stock // Changed from quantity to stock
-      });
-
-      // If image is selected, upload it
-      if (selectedImage && productResponse.data.id) {
-        const formData = new FormData();
+      // Create a FormData object for the entire product submission
+      const formData = new FormData();
+      formData.append('name', productForm.name);
+      formData.append('description', productForm.description);
+      formData.append('price', productForm.price.toString());
+      formData.append('stock', productForm.quantity?.toString() || '0');
+      
+      // Add image if selected
+      if (selectedImage) {
         formData.append('image', selectedImage);
-
-        await axios.post(`/api/v1/product/${productResponse.data.id}/upload-image`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
       }
 
+      console.log('Sending product form data with fields:', 
+        Array.from(formData.entries()).map(([key]) => key).join(', '));
+
+      // Send the entire form in a single request - no separate image upload needed
+      const productResponse = await axios.post('/api/v1/product/add', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      console.log('Product created response:', productResponse.data);
       toast.success('Product created successfully');
       
       // Refresh product list
       const response = await axios.get('/api/v1/product/get');
-      setProducts(response.data);
+      setProducts(Array.isArray(response.data) ? response.data : []);
       
       setShowCreateDialog(false);
       setProductForm(initialProductState);
@@ -247,12 +278,20 @@ const ProductManagement = () => {
     setFormSubmitting(true);
 
     try {
-      // Update product details using the correct field names
-      await axios.put(`/api/v1/product/update/${currentProduct.id}`, {
+      // Update product details using stock field instead of stockQuantity
+      const productData = {
         name: productForm.name,
         description: productForm.description,
         price: productForm.price,
-        stock: productForm.stock // Changed from quantity to stock
+        stock: productForm.quantity 
+      };
+      
+      console.log('Updating product with data:', productData);
+      
+      await axios.put(`/api/v1/product/update/${currentProduct.id}`, productData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
       });
 
       // If image is selected, update it
@@ -260,9 +299,12 @@ const ProductManagement = () => {
         const formData = new FormData();
         formData.append('image', selectedImage);
 
+        console.log('Uploading new image for product ID:', currentProduct.id);
+        
         await axios.post(`/api/v1/product/${currentProduct.id}/upload-image`, formData, {
           headers: {
-            'Content-Type': 'multipart/form-data'
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         });
       }
@@ -271,7 +313,7 @@ const ProductManagement = () => {
       
       // Refresh product list
       const response = await axios.get('/api/v1/product/get');
-      setProducts(response.data);
+      setProducts(Array.isArray(response.data) ? response.data : []);
       
       setShowEditDialog(false);
       setCurrentProduct(null);
@@ -292,12 +334,20 @@ const ProductManagement = () => {
     setFormSubmitting(true);
 
     try {
-      // Use the correct delete endpoint
-      await axios.delete(`/api/v1/product/delete/${currentProduct.id}`);
+      // Use the relative URL with correct endpoint and include token
+      await axios.delete(`/api/v1/product/delete/${currentProduct.id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       toast.success('Product deleted successfully');
       
-      // Remove product from local state
-      setProducts(products.filter(p => p.id !== currentProduct.id));
+      // Refresh product list - no token needed for fetching products
+      const response = await axios.get('/api/v1/product/get');
+      
+      // Use the API response directly since it already has the quantity field
+      setProducts(Array.isArray(response.data) ? response.data : []);
+      
       setShowDeleteDialog(false);
       setCurrentProduct(null);
     } catch (error) {
@@ -369,9 +419,9 @@ const ProductManagement = () => {
                       <ArrowUpDown className="ml-2 h-4 w-4" />
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort('stock')}>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort('quantity')}>
                     <div className="flex items-center">
-                      Stock
+                      Quantity
                       <ArrowUpDown className="ml-2 h-4 w-4" />
                     </div>
                   </TableHead>
@@ -407,8 +457,8 @@ const ProductManagement = () => {
                     </TableCell>
                     <TableCell>{formatPrice(product.price)}</TableCell>
                     <TableCell>
-                      <span className={!product.stock || product.stock <= 0 ? 'text-red-500' : ''}>
-                        {!product.stock || product.stock <= 0 ? 'Out of stock' : product.stock}
+                      <span className={!product.quantity || product.quantity <= 0 ? 'text-red-500' : ''}>
+                        {!product.quantity || product.quantity <= 0 ? 'Out of stock' : product.quantity}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -499,13 +549,13 @@ const ProductManagement = () => {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="stock">Stock</Label>
+                  <Label htmlFor="quantity">Quantity</Label>
                   <Input
-                    id="stock"
-                    name="stock"
+                    id="quantity"
+                    name="quantity"
                     type="number"
                     min="0"
-                    value={productForm.stock || ''}
+                    value={productForm.quantity || ''}
                     onChange={handleInputChange}
                     required
                   />
@@ -598,13 +648,13 @@ const ProductManagement = () => {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-stock">Stock</Label>
+                  <Label htmlFor="edit-quantity">Quantity</Label>
                   <Input
-                    id="edit-stock"
-                    name="stock"
+                    id="edit-quantity"
+                    name="quantity"
                     type="number"
                     min="0"
-                    value={productForm.stock || ''}
+                    value={productForm.quantity || ''}
                     onChange={handleInputChange}
                     required
                   />

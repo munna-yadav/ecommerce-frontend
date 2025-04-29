@@ -105,7 +105,7 @@ const Cart = () => {
         await fetchCart();
         
         // You can navigate to an order confirmation page here
-        navigate('/checkout/success');
+        navigate('/orders');
       } else {
         toast.error(response.data.message || 'Checkout failed. Please try again.');
       }

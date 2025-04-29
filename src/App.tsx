@@ -51,7 +51,7 @@ function App() {
             <ErrorBoundary>
               <CartProvider>
                 <AppRoutes />
-                <Toaster position="top-right" duration={3000} />
+                <Toaster position="bottom-right" duration={3000} />
               </CartProvider>
             </ErrorBoundary>
           </AuthProvider>

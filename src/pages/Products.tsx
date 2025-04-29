@@ -38,7 +38,7 @@ interface Product {
   name: string;
   description: string;
   price: number;
-  quantity?: number;
+  quantity?: number; // Using quantity to match API response
   image?: string;
   category?: string;
 }
@@ -82,29 +82,40 @@ const Products = () => {
       setError(null);
       
       try {
-        // Fetch all products from the backend endpoint
+        console.log('Fetching products for public display...');
+        // Use relative path with proxy instead of absolute URL
         const response = await axios.get('/api/v1/product/get');
+        
+        console.log('Products API response:', response.data);
         
         if (response.data && Array.isArray(response.data)) {
           setAllProducts(response.data);
+          console.log(`Successfully loaded ${response.data.length} products`);
+          
+          // Extract unique categories from products
+          const uniqueCategories = Array.from(
+            new Set(
+              response.data
+                .filter((product: Product) => product.category)
+                .map((product: Product) => product.category)
+            )
+          );
+          setCategories(uniqueCategories as string[]);
         } else {
+          console.error('Unexpected API response format:', response.data);
           setAllProducts([]);
           setError('Unexpected API response format');
         }
-
-        // Extract unique categories from products
-        const uniqueCategories = Array.from(
-          new Set(
-            response.data
-              .filter((product: Product) => product.category)
-              .map((product: Product) => product.category)
-          )
-        );
-        setCategories(uniqueCategories as string[]);
-        
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching products:', error);
-        setError('Failed to load products. Please try again later.');
+        
+        // More detailed error logging
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+        }
+        
+        setError(`Failed to load products: ${error.message || 'Unknown error'}`);
         setAllProducts([]);
       } finally {
         setIsLoading(false);

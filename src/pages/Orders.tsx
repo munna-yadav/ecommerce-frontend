@@ -3,6 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, PackageOpen, ShoppingCart, AlertCircle, MapPin, CreditCard } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import axios from 'axios';
 
@@ -19,7 +30,10 @@ interface Order {
 const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<number | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -77,6 +91,44 @@ const Orders = () => {
 
     fetchOrders();
   }, [isAuthenticated]);
+
+  // Handle delete order
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    
+    setIsDeleting(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      await axios.delete(`/api/v1/user/delete-order/${orderToDelete}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      // Remove the deleted order from state
+      setOrders(orders.filter(order => order.id !== orderToDelete));
+      toast.success('Order deleted successfully');
+      
+    } catch (error: any) {
+      console.error('Error deleting order:', error);
+      
+      // Show more detailed error from response if available
+      const errorMessage = error.response?.data?.message || 'Failed to delete order';
+      toast.error(errorMessage);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      setOrderToDelete(null);
+    }
+  };
+
+  // Opens the confirmation dialog before deleting
+  const openDeleteDialog = (orderId: number) => {
+    setOrderToDelete(orderId);
+    setShowDeleteDialog(true);
+  };
 
   if (!isAuthenticated) {
     return (
@@ -217,15 +269,12 @@ const Orders = () => {
                       </Button>
                     )}
                     
-                    {order.status === 'PENDING' && (
+                    {(order.status === 'PENDING' || order.status === 'PROCESSING') && (
                       <Button 
                         variant="outline" 
                         className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
                         size="sm"
-                        onClick={() => {
-                          // Add cancel order functionality here
-                          alert('Cancel order functionality will be implemented here');
-                        }}
+                        onClick={() => openDeleteDialog(order.id)}
                       >
                         Cancel Order
                       </Button>
@@ -237,6 +286,35 @@ const Orders = () => {
           ))}
         </div>
       )}
+      
+      {/* Delete Order Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel and Delete Order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete your order. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteOrder}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Order'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
