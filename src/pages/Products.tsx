@@ -8,7 +8,11 @@ import {
   Loader2, 
   Filter, 
   SlidersHorizontal, 
-  X
+  X,
+  Heart,
+  Eye,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import axios from 'axios';
@@ -273,323 +277,274 @@ const Products = () => {
     setSearchParams(new URLSearchParams({ sort: 'newest' }));
   };
 
-  // Generate pagination controls
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-    
-    const pages = [];
-    const showFirst = currentPage > 3;
-    const showLast = currentPage < totalPages - 2;
-    const startPage = Math.max(1, currentPage - 2);
-    const endPage = Math.min(totalPages, currentPage + 2);
-    
-    if (showFirst) {
-      pages.push(
-        <Button 
-          key="first" 
-          variant="outline" 
-          size="sm" 
-          onClick={() => handlePageChange(1)}
-        >
-          1
-        </Button>
-      );
-      if (startPage > 2) {
-        pages.push(<span key="dots1" className="px-2">...</span>);
-      }
-    }
-    
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(
-        <Button 
-          key={i} 
-          variant={i === currentPage ? "default" : "outline"}
-          size="sm" 
-          onClick={() => handlePageChange(i)}
-        >
-          {i}
-        </Button>
-      );
-    }
-    
-    if (showLast) {
-      if (endPage < totalPages - 1) {
-        pages.push(<span key="dots2" className="px-2">...</span>);
-      }
-      pages.push(
-        <Button 
-          key="last" 
-          variant="outline" 
-          size="sm" 
-          onClick={() => handlePageChange(totalPages)}
-        >
-          {totalPages}
-        </Button>
-      );
-    }
-    
-    return (
-      <div className="flex justify-center mt-8 space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-        >
-          Previous
-        </Button>
-        <div className="flex items-center space-x-2">
-          {pages}
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-        >
-          Next
-        </Button>
-      </div>
-    );
-  };
-
-  // Filter sidebar content - shared between desktop and mobile
-  const filterContent = (
-    <div className="space-y-6">
-           
-      <div>
-        <h3 className="font-medium mb-4">Price Range</h3>
-        <div className="space-y-6">
-          <Slider
-            defaultValue={priceRange}
-            min={0}
-            max={100000}
-            step={1000}
-            value={priceRange}
-            onValueChange={handlePriceRangeChange}
-            onValueCommit={applyPriceRange}
-          />
-          <div className="flex items-center justify-between">
-            <Input
-              type="number"
-              value={priceRange[0]}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                if (!isNaN(value)) {
-                  setPriceRange([value, priceRange[1]]);
-                }
-              }}
-              onBlur={applyPriceRange}
-              className="w-[45%]"
-            />
-            <span>to</span>
-            <Input
-              type="number"
-              value={priceRange[1]}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                if (!isNaN(value)) {
-                  setPriceRange([priceRange[0], value]);
-                }
-              }}
-              onBlur={applyPriceRange}
-              className="w-[45%]"
-            />
-          </div>
-        </div>
-      </div>
-      
-      <Separator />
-      
-      <div>
-        <h3 className="font-medium mb-4">Categories</h3>
-        <div className="space-y-2">
-          {categories.map((category) => (
-            <div key={category} className="flex items-center">
-              <Checkbox
-                id={`category-${category}`}
-                checked={selectedCategories.includes(category)}
-                onCheckedChange={(checked) => 
-                  handleCategoryChange(category, checked === true)
-                }
-              />
-              <Label
-                htmlFor={`category-${category}`}
-                className="ml-2 text-sm font-normal cursor-pointer"
-              >
-                {category}
-              </Label>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={clearFilters}
-      >
-        <X className="h-4 w-4 mr-2" />
-        Clear Filters
-      </Button>
-    </div>
-  );
-
   return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold mb-2">All Products</h1>
-      
-      {/* Filters and Sorting */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-        <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto mb-4 md:mb-0">
-          {/* Mobile filter button */}
-          <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-            <SheetTrigger asChild className="md:hidden">
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Filters
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[300px]">
-              <SheetHeader className="mb-6">
-                <SheetTitle>Filters</SheetTitle>
-              </SheetHeader>
-              {filterContent}
-            </SheetContent>
-          </Sheet>
-          
-          {/* Sort dropdown */}
-          <Select value={sortBy} onValueChange={handleSortChange}>
-            <SelectTrigger className="w-[200px]">
-              <span className="flex items-center">
-                <SlidersHorizontal className="h-4 w-4 mr-2" />
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <div className="container mx-auto px-4 py-12">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+              Our Products
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Discover our curated collection of premium products
+            </p>
+          </div>
+
+          {/* Sort and Filter Controls */}
+          <div className="flex items-center gap-4">
+            <Select value={sortBy} onValueChange={handleSortChange}>
+              <SelectTrigger className="w-[180px] bg-white/80 backdrop-blur-sm">
                 <SelectValue placeholder="Sort by" />
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="price_low_high">Price: Low to High</SelectItem>
-              <SelectItem value="price_high_low">Price: High to Low</SelectItem>
-              <SelectItem value="name_asc">Name (A-Z)</SelectItem>
-              <SelectItem value="name_desc">Name (Z-A)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="text-sm text-gray-500">
-          {filteredProducts.length > 0 ? (
-            <span>
-              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)}-
-              {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
-            </span>
-          ) : !isLoading ? (
-            <span>No products found</span>
-          ) : null}
-        </div>
-      </div>
-      
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Desktop Filters Sidebar */}
-        <div className="hidden md:block w-64 space-y-6">
-          <div className="sticky top-24">
-            <h2 className="text-xl font-bold mb-6">Filters</h2>
-            {filterContent}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="price_low_high">Price: Low to High</SelectItem>
+                <SelectItem value="price_high_low">Price: High to Low</SelectItem>
+                <SelectItem value="name_asc">Name: A to Z</SelectItem>
+                <SelectItem value="name_desc">Name: Z to A</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="md:hidden">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filters
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+                <SheetHeader>
+                  <SheetTitle>Filters</SheetTitle>
+                </SheetHeader>
+                <div className="py-4">
+                  {/* Mobile Filters Content */}
+                  <div className="space-y-6">
+                    {/* Categories */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Categories</h3>
+                      <div className="space-y-2">
+                        {categories.map((category) => (
+                          <div key={category} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={category}
+                              checked={selectedCategories.includes(category)}
+                              onCheckedChange={(checked) => 
+                                handleCategoryChange(category, checked as boolean)
+                              }
+                            />
+                            <Label htmlFor={category}>{category}</Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Price Range */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Price Range</h3>
+                      <div className="px-2">
+                        <Slider
+                          value={priceRange}
+                          onValueChange={handlePriceRangeChange}
+                          onValueCommit={applyPriceRange}
+                          min={0}
+                          max={100000}
+                          step={1000}
+                          className="mb-4"
+                        />
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>{formatPrice(priceRange[0])}</span>
+                          <span>{formatPrice(priceRange[1])}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={clearFilters}
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
-        
-        {/* Products Grid */}
-        <div className="flex-1">
-          {isLoading ? (
-            <div className="flex justify-center items-center py-12">
-              <Loader2 className="h-8 w-8 text-purple-600 animate-spin mr-2" />
-              <span className="text-gray-600">Loading products...</span>
-            </div>
-          ) : error ? (
-            <div className="bg-red-50 p-4 rounded-md text-red-800">
-              <p>{error}</p>
-              <Button 
-                onClick={() => window.location.reload()} 
-                variant="outline"
-                className="mt-2"
-              >
-                Try Again
-              </Button>
-            </div>
-          ) : currentProducts.length > 0 ? (
-            <>
+
+        {/* Main Content */}
+        <div className="flex gap-8">
+          {/* Desktop Filters */}
+          <div className="hidden md:block w-64 flex-shrink-0">
+            <Card className="bg-white/80 backdrop-blur-sm border border-gray-100 shadow-lg p-6 sticky top-8">
+              <div className="space-y-6">
+                {/* Categories */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Categories</h3>
+                  <div className="space-y-2">
+                    {categories.map((category) => (
+                      <div key={category} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={category}
+                          checked={selectedCategories.includes(category)}
+                          onCheckedChange={(checked) => 
+                            handleCategoryChange(category, checked as boolean)
+                          }
+                        />
+                        <Label htmlFor={category}>{category}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Price Range */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Price Range</h3>
+                  <div className="px-2">
+                    <Slider
+                      value={priceRange}
+                      onValueChange={handlePriceRangeChange}
+                      onValueCommit={applyPriceRange}
+                      min={0}
+                      max={100000}
+                      step={1000}
+                      className="mb-4"
+                    />
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>{formatPrice(priceRange[0])}</span>
+                      <span>{formatPrice(priceRange[1])}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={clearFilters}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </Card>
+          </div>
+
+          {/* Products Grid */}
+          <div className="flex-1">
+            {isLoading ? (
+              <div className="flex justify-center items-center min-h-[400px]">
+                <Loader2 className="h-12 w-12 text-purple-600 animate-spin" />
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <p className="text-red-500">{error}</p>
+              </div>
+            ) : currentProducts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <ShoppingCart className="h-10 w-10 text-purple-600" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">No Products Found</h3>
+                <p className="text-gray-500 mb-6">
+                  Try adjusting your filters to find what you're looking for
+                </p>
+                <Button 
+                  onClick={clearFilters}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {currentProducts.map((product) => (
                   <Card 
-                    key={product.id} 
-                    className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/product/${product.id}`)}
+                    key={product.id}
+                    className="group bg-white/80 backdrop-blur-sm border border-gray-100 shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300"
                   >
-                    <div className="relative h-48 bg-gray-100">
+                    <div className="relative aspect-square overflow-hidden cursor-pointer" onClick={() => navigate(`/product/${product.id}`)}>
                       <img
                         src={product.image || fallbackImage}
                         alt={product.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = fallbackImage;
+                          if (!(e.target as HTMLImageElement).dataset.tried) {
+                            (e.target as HTMLImageElement).dataset.tried = "1";
+                            (e.target as HTMLImageElement).src = fallbackImage;
+                          }
                         }}
                       />
-                      {product.category && (
-                        <div className="absolute top-2 left-2 bg-white/80 backdrop-blur-sm px-2 py-1 rounded text-xs font-medium">
-                          {product.category}
-                        </div>
-                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="h-12 w-12 rounded-full bg-white/90 hover:bg-white hover:scale-110 transition-transform"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/product/${product.id}`);
+                          }}
+                        >
+                          <Eye className="h-6 w-6" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="p-4">
-                      <h3 className="font-semibold text-lg mb-1 line-clamp-1" title={product.name}>
-                        {product.name}
-                      </h3>
-                      <p className="text-gray-600 mb-3 line-clamp-2 text-sm" title={product.description}>
-                        {product.description || "No description available"}
-                      </p>
-                      <div className="flex justify-between items-center">
-                        <span className="text-purple-600 font-bold">{formatPrice(product.price)}</span>
-                        <div className="flex items-center">
-                          {/* Default rating of 4 stars since API doesn't provide ratings */}
-                          {Array(4).fill(0).map((_, i) => (
-                            <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
-                          ))}
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <span className={`text-sm ${product.quantity && product.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {product.quantity && product.quantity > 0 ? `In Stock (${product.quantity})` : 'Out of Stock'}
+                      <h3 className="font-semibold text-lg mb-2 line-clamp-1">{product.name}</h3>
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
+                      <div className="flex flex-col gap-3">
+                        <span className="text-lg font-bold text-purple-600">
+                          {formatPrice(product.price)}
                         </span>
+                        <Button
+                          className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-all duration-300 hover:shadow-lg"
+                          onClick={(e) => handleAddToCart(product.id, e)}
+                        >
+                          <ShoppingCart className="h-4 w-4 mr-2" />
+                          Add to Cart
+                        </Button>
                       </div>
-                      <Button 
-                        className="w-full mt-4 bg-purple-600 hover:bg-purple-700"
-                        onClick={(e) => handleAddToCart(product.id, e)}
-                        disabled={!product.quantity || product.quantity <= 0}
-                      >
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                        Add to Cart
-                      </Button>
                     </div>
                   </Card>
                 ))}
               </div>
-              
-              {/* Pagination */}
-              {renderPagination()}
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <div className="bg-gray-50 p-8 rounded-lg max-w-md mx-auto">
-                <h2 className="text-xl font-bold mb-2">No products found</h2>
-                <p className="text-gray-600 mb-6">
-                  Try adjusting your filters or search criteria
-                </p>
-                <Button onClick={clearFilters} variant="outline">
-                  Clear all filters
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="rounded-full"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    onClick={() => handlePageChange(page)}
+                    className="rounded-full w-10 h-10"
+                  >
+                    {page}
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="rounded-full"
+                >
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

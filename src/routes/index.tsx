@@ -1,24 +1,28 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Index from '../pages/Index';
-import Auth from '../pages/Auth'; // Import the unified Auth page
+import Auth from '../pages/Auth'; 
 import Profile from '../pages/Profile';
-import EditProfile from '../pages/EditProfile'; // Import the EditProfile page
-import Cart from '../pages/Cart'; // Import the Cart page
-import Orders from '../pages/Orders'; // Import the Orders page
-import Products from '../pages/Products'; // Import the Products page
-import CheckoutSuccess from '../pages/CheckoutSuccess'; // Import the CheckoutSuccess page
+import EditProfile from '../pages/EditProfile'; 
+import Cart from '../pages/Cart'; 
+import Orders from '../pages/Orders'; 
+import OrderDetail from '../pages/OrderDetail';
+import Products from '../pages/Products'; 
+import CheckoutSuccess from '../pages/CheckoutSuccess';
 import Navbar from '../components/layout/Navbar';
-import SearchResults from '../pages/SearchResults.tsx'; // Import the SearchResults page
-import ProductDetail from '../pages/ProductDetail.tsx'; // Import the ProductDetail page
-import AdminDashboard from '../pages/admin/Dashboard'; // Import the AdminDashboard page
-import ProductManagement from '../pages/admin/ProductManagement'; // Import the ProductManagement page
+import SearchResults from '../pages/SearchResults.tsx'; 
+import ProductDetail from '../pages/ProductDetail.tsx';
+import AdminDashboard from '../pages/admin/Dashboard'; 
+import ProductManagement from '../pages/admin/ProductManagement';
+import NotFound from '../pages/NotFound'; // Import NotFound component
 
 // A protected route component that redirects to login if user is not authenticated
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
   
+  // Important: Show loading state during authentication check
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -30,7 +34,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
   
-  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" />; // Redirect to /auth instead of /login
+  // If not authenticated, redirect to auth page with return URL
+  if (!isAuthenticated) {
+    // Store the current path to redirect back after login
+    return <Navigate to={`/auth?returnUrl=${encodeURIComponent(location.pathname)}`} replace />;
+  }
+  
+  // If authenticated, render the children
+  return <>{children}</>;
 };
 
 // Simple layout component that includes the Navbar
@@ -47,8 +58,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<Layout><Index /></Layout>} />
-      <Route path="/auth" element={<Auth />} /> {/* Unified auth page */}
-      {/* Redirects for /login and /register to maintain backward compatibility */}
+      <Route path="/auth" element={<Auth />} />
       <Route path="/login" element={<Navigate to="/auth?tab=login" replace />} />
       <Route path="/register" element={<Navigate to="/auth?tab=register" replace />} />
       <Route 
@@ -96,13 +106,23 @@ const AppRoutes = () => {
         } 
       />
       <Route 
-        path="/checkout/success" 
+        path="/orders/:id" 
+        element={
+          <ProtectedRoute>
+            <Layout><OrderDetail /></Layout>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/checkout-success" 
         element={
           <ProtectedRoute>
             <Layout><CheckoutSuccess /></Layout>
           </ProtectedRoute>
         } 
       />
+      
+      {/* Admin routes */}
       <Route 
         path="/admin" 
         element={
@@ -119,7 +139,9 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } 
       />
-      {/* Add more routes as needed */}
+      
+      {/* 404 route */}
+      <Route path="*" element={<Layout><NotFound /></Layout>} />
     </Routes>
   );
 };

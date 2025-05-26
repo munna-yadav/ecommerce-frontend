@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import axiosInstance from '@/lib/axios';
 
 // Define the shape of the user object
 interface User {
@@ -39,22 +39,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [authChecked, setAuthChecked] = useState<boolean>(false);
   const navigate = useNavigate();
 
   // Function to check if user is authenticated
-  const checkAuthStatus = async (): Promise<boolean> => {
+  const checkAuthStatus = useCallback(async (): Promise<boolean> => {
+    console.log("Checking auth status...");
     const token = localStorage.getItem('token');
+    
     if (!token) {
+      console.log("No token found, not authenticated");
       setIsAuthenticated(false);
       setUser(null);
       setIsLoading(false);
+      setAuthChecked(true);
       return false;
     }
 
     try {
-      const response = await axios.get('/api/v1/user/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      console.log("Token found, verifying with backend...");
+      // Using the axiosInstance that automatically includes the Bearer token
+      const response = await axiosInstance.get('/api/v1/user/me');
+      console.log("Auth check successful:", response.data);
 
       const userData: User = {
         id: response.data.id,
@@ -67,35 +73,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(userData);
       setIsAuthenticated(true);
       setIsLoading(false);
+      setAuthChecked(true);
       return true;
     } catch (error) {
-      console.error('Authentication error:', error);
+      console.error('Authentication check error:', error);
       
-      // Handle token expiration
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        localStorage.removeItem('token');
-        setIsAuthenticated(false);
-        setUser(null);
-      }
-      
+      // Don't clear token here - that's handled by axios interceptor
+      setIsAuthenticated(false);
+      setUser(null);
       setIsLoading(false);
+      setAuthChecked(true);
       return false;
     }
-  };
+  }, []);
 
   // Function to handle user login
   const login = async (emailOrUsername: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const response = await axios.post('/api/v1/auth/login', {
+      const response = await axiosInstance.post('/api/v1/auth/login', {
         emailOrUsername,
         password
       });
 
-     
-
       // The token might be nested differently in the response
       // Check the actual structure in your console log
+      console.log("Login response:", response.data);
       const token = response.data.token || response.data.accessToken || response.data.access_token;
       
       if (!token) {
@@ -120,11 +123,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return false;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
-      const message = axios.isAxiosError(error)
-        ? error.response?.data?.message || 'Login failed'
-        : 'Login failed';
+      const message = error.response?.data?.message || 'Login failed';
       toast.error(message);
       setIsLoading(false);
       return false;
@@ -135,15 +136,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (userData: any): Promise<boolean> => {
     setIsLoading(true);
     try {
-      await axios.post('/api/v1/auth/register', userData);
+      console.log('Sending registration data:', userData);
+      
+      // Try with fetch API to have more control over the exact format
+      const response = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(userData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `Registration failed with status ${response.status}`);
+      }
+      
       toast.success('Registration successful! Please log in.');
       setIsLoading(false);
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
-      const message = axios.isAxiosError(error)
-        ? error.response?.data?.message || 'Registration failed'
-        : 'Registration failed';
+      const message = error.message || 'Registration failed';
       toast.error(message);
       setIsLoading(false);
       return false;
@@ -159,15 +173,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Navigate to home page and replace current history entry
     navigate('/', { replace: true });
-    
-    // Force a page reload
-    window.location.reload();
   };
 
   // Check authentication status when the app loads
   useEffect(() => {
+    console.log("AuthProvider mounted, checking auth status...");
     checkAuthStatus();
-  }, []);
+  }, [checkAuthStatus]);
 
   // Create the auth context value
   const contextValue: AuthContextType = {
@@ -179,6 +191,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     checkAuthStatus,
   };
+
+  if (!authChecked) {
+    // Don't render children until we've finished the initial auth check
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-700 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };

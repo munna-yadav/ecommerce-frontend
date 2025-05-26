@@ -12,9 +12,10 @@ const Auth = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   
-  // Parse tab from URL query string
+  // Parse tab and returnUrl from URL query string
   const searchParams = new URLSearchParams(location.search);
   const tabParam = searchParams.get('tab');
+  const returnUrl = searchParams.get('returnUrl') || '/';
   const defaultTab = tabParam === 'register' ? 'register' : 'login';
   
   const [activeTab, setActiveTab] = useState(defaultTab);
@@ -22,14 +23,15 @@ const Auth = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/', { replace: true });
+      // If there's a returnUrl, navigate there, otherwise go to home
+      navigate(returnUrl, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, returnUrl]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    // Update URL to reflect current tab without page reload
-    navigate(`/auth?tab=${value}`, { replace: true });
+    // Update URL to reflect current tab without page reload, but preserve returnUrl
+    navigate(`/auth?tab=${value}${returnUrl !== '/' ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ''}`, { replace: true });
   };
 
   return (
@@ -61,7 +63,7 @@ const Auth = () => {
                 <CardDescription className="mb-4">
                   Enter your credentials to access your account
                 </CardDescription>
-                <Login />
+                <Login returnUrl={returnUrl} />
               </TabsContent>
               
               <TabsContent value="register" className="p-6">
