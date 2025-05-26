@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
@@ -10,6 +10,7 @@ interface CartItem {
   quantity: number;
   price: number;
   totalPrice: number;
+  image?: string; // Add optional image property
 }
 
 // Define cart context interface
@@ -20,7 +21,7 @@ interface CartContextType {
   removeFromCart: (productId: number) => Promise<void>;
   updateQuantity: (productId: number, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
-  fetchCart: () => Promise<void>; // Expose fetchCart method
+  fetchCart: () => Promise<void>;
   cartTotal: number;
   cartCount: number;
 }
@@ -33,7 +34,7 @@ const CartContext = createContext<CartContextType>({
   removeFromCart: async () => {},
   updateQuantity: async () => {},
   clearCart: async () => {},
-  fetchCart: async () => {}, // Default fetchCart method
+  fetchCart: async () => {},
   cartTotal: 0,
   cartCount: 0,
 });
@@ -44,22 +45,52 @@ export const useCart = () => useContext(CartContext);
 // Cart provider component
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [cartTotal, setCartTotal] = useState(0);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  
+  // Use refs to prevent infinite loops
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+  const cartInitializedRef = useRef(false);
   
   // Calculate cart item count with safeguards
   const cartCount = Array.isArray(cartItems)
     ? cartItems.reduce((count, item) => count + item.quantity, 0)
     : 0;
 
-  // Fetch cart items from API
-  const fetchCart = async () => {
-    if (!isAuthenticated || authLoading) return;
+  // Helper function to get auth headers
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    };
+  };
+
+  // Fetch cart items from API with debounce and loop prevention
+  const fetchCart = useCallback(async () => {
+    // Don't fetch if:
+    // 1. User isn't authenticated
+    // 2. Auth is still loading
+    // 3. We're already fetching
+    // 4. We've fetched in the last 500ms (debounce)
+    if (!isAuthenticated || authLoading || 
+        isFetchingRef.current || 
+        Date.now() - lastFetchTimeRef.current < 500) {
+      return;
+    }
     
+    isFetchingRef.current = true;
     setIsLoading(true);
+    
     try {
-      const response = await axios.get('/api/v1/cart/get');
+      console.log('Fetching cart data...');
+      // Use auth headers for cart fetch
+      const response = await axios.get('/api/v1/cart/get', getAuthHeaders());
+      lastFetchTimeRef.current = Date.now();
       
       // Log the response for debugging
       console.log('Cart API response:', response.data);
@@ -71,25 +102,27 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Ensure we always set an array, even if the API returns unexpected structure
       setCartItems(Array.isArray(cartData) ? cartData : []);
       setCartTotal(totalAmount);
+      cartInitializedRef.current = true;
     } catch (error) {
       console.error('Error fetching cart:', error);
       setCartItems([]);
       setCartTotal(0);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Fetch cart when authentication state changes
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchCart();
-    } else {
-      setCartItems([]);
-      setCartTotal(0);
-      setIsLoading(false);
+      isFetchingRef.current = false;
     }
   }, [isAuthenticated, authLoading]);
+
+  // Only fetch cart once when authentication is confirmed
+  useEffect(() => {
+    if (isAuthenticated && !authLoading && !cartInitializedRef.current) {
+      fetchCart();
+    } else if (!isAuthenticated && !authLoading) {
+      setCartItems([]);
+      setCartTotal(0);
+      cartInitializedRef.current = false;
+    }
+  }, [isAuthenticated, authLoading, fetchCart]);
 
   // Add item to cart
   const addToCart = async (productId: number, quantity: number = 1) => {
@@ -98,70 +131,82 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    setIsLoading(true);
     try {
+      console.log(`Adding product ID ${productId} with quantity ${quantity} to cart`);
       // Using POST with query parameters as expected by the API
-      await axios.post(`/api/v1/cart/add?productId=${productId}&quantity=${quantity}`);
+      await axios.post(`/api/v1/cart/add?productId=${productId}&quantity=${quantity}`, {}, getAuthHeaders());
       toast.success('Item added to cart');
-      fetchCart(); // Refresh cart after adding item
-    } catch (error) {
+      await fetchCart();
+    } catch (error: any) {
       console.error('Error adding to cart:', error);
-      toast.error('Failed to add item to cart');
+      toast.error(error.response?.data?.message || 'Failed to add item to cart');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Remove item from cart
-  const removeFromCart = async (productId: number) => {
+  const removeFromCart = async (productId: number): Promise<void> => {
+    if (!isAuthenticated) return;
+
+    setIsLoading(true);
     try {
-      // Using DELETE method instead of GET for removing items from cart
-      await axios.delete(`/api/v1/cart/delete-item?productId=${productId}`);
+      console.log(`Removing product ID ${productId} from cart`);
+      // Using the correct endpoint /cart/delete-item with request param
+      await axios.delete(`/api/v1/cart/delete-item?productId=${productId}`, getAuthHeaders());
       toast.success('Item removed from cart');
-      fetchCart(); // Refresh cart after removing item
-    } catch (error) {
-      console.error('Error removing from cart:', error);
-      toast.error('Failed to remove item from cart');
+      await fetchCart();
+    } catch (error: any) {
+      console.error('Error removing item from cart:', error);
+      toast.error(error.response?.data?.message || 'Failed to remove item');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Update item quantity in cart
-  const updateQuantity = async (productId: number, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
-      return;
-    }
+  // Update item quantity
+  const updateQuantity = async (productId: number, quantity: number): Promise<void> => {
+    if (!isAuthenticated || quantity < 1) return;
 
+    setIsLoading(true);
     try {
-      // First remove the item using DELETE method
-      await axios.delete(`/api/v1/cart/delete-item?productId=${productId}`);
-      // Then add it back with the new quantity using POST method
-      await axios.post(`/api/v1/cart/add?productId=${productId}&quantity=${quantity}`);
-      fetchCart(); // Refresh cart after updating
-    } catch (error) {
-      console.error('Error updating cart:', error);
-      toast.error('Failed to update item quantity');
+      console.log(`Updating product ID ${productId} quantity to ${quantity}`);
+      // Try both potential API formats
+      try {
+        // First attempt - using PUT with path parameter and query parameter
+        await axios.put(`/api/v1/cart/update/${productId}?quantity=${quantity}`, {}, getAuthHeaders());
+      } catch (firstError) {
+        console.log('First update attempt failed, trying alternative endpoint format');
+        // Second attempt - using PUT with query parameters only
+        await axios.put(`/api/v1/cart/update?productId=${productId}&quantity=${quantity}`, {}, getAuthHeaders());
+      }
+      
+      await fetchCart();
+    } catch (error: any) {
+      console.error('Error updating item quantity:', error);
+      toast.error(error.response?.data?.message || 'Failed to update quantity');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Clear the entire cart
   const clearCart = async () => {
+    if (!isAuthenticated) return;
+    
+    setIsLoading(true);
     try {
-      // Make sure cartItems is an array before attempting to map
-      if (!Array.isArray(cartItems) || cartItems.length === 0) {
-        setCartItems([]);
-        setCartTotal(0);
-        return;
-      }
-      
-      // Use DELETE method for each item in the cart
-      const promises = cartItems.map(item => 
-        axios.delete(`/api/v1/cart/delete-item?productId=${item.productId}`)
-      );
-      await Promise.all(promises);
+      console.log('Clearing cart');
+      await axios.delete('/api/v1/cart/clear', getAuthHeaders());
       setCartItems([]);
       setCartTotal(0);
       toast.success('Cart cleared');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error clearing cart:', error);
-      toast.error('Failed to clear cart');
+      toast.error(error.response?.data?.message || 'Failed to clear cart');
+    } finally {
+      setIsLoading(false);
     }
   };
 
