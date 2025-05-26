@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -13,7 +14,6 @@ const Register = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'CUSTOMER',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -33,20 +33,25 @@ const Register = () => {
 
     // Basic validation
     if (!formData.name || !formData.username || !formData.email || !formData.password) {
+      toast.error("All fields are required");
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
+      toast.error("Passwords don't match");
       return;
     }
 
+    // Simplified user data object - avoiding nested properties that might cause Jackson issues
     const userData = {
       name: formData.name,
       username: formData.username,
       email: formData.email,
       password: formData.password,
-      role: formData.role
+      role: "CUSTOMER"  // Default role as a simple string
     };
+
+    console.log("Registering with data:", userData);
 
     const success = await register(userData);
     if (success) {
@@ -57,12 +62,11 @@ const Register = () => {
         email: '',
         password: '',
         confirmPassword: '',
-        role: 'CUSTOMER',
       });
       
       // Redirect to login page
       setTimeout(() => {
-        navigate('/login');
+        navigate('/auth?tab=login');
       }, 1500);
     }
   };

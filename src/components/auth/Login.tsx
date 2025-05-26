@@ -5,8 +5,15 @@ import { Label } from "@/components/ui/label";
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { Link } from 'react-router-dom';
+import { Search } from 'lucide-react';
+import { Heart, ShoppingCart } from 'lucide-react';
 
-const Login = () => {
+interface LoginProps {
+  returnUrl?: string;
+}
+
+const Login: React.FC<LoginProps> = ({ returnUrl = '/' }) => {
   const [formData, setFormData] = useState({
     emailOrUsername: '',
     password: ''
@@ -14,6 +21,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { login, isLoading } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -30,14 +38,23 @@ const Login = () => {
     if (!formData.emailOrUsername || !formData.password) {
       return;
     }
-
+    
     const success = await login(formData.emailOrUsername, formData.password);
     if (success) {
-      // Redirect after successful login
+      // Redirect after successful login to the returnUrl
       setTimeout(() => {
-        navigate('/');
-      }, 1000);
+        navigate(returnUrl);
+      }, 500);
     }
+  };
+
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Handle search submission
   };
 
   return (
@@ -100,6 +117,47 @@ const Login = () => {
         )}
       </Button>
     </form>
+  );
+};
+
+// New Product Card Component
+const ProductCard = ({ product }) => {
+  return (
+    <div className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
+      {/* Image Container with Hover Effect */}
+      <div className="aspect-square overflow-hidden">
+        <img
+          src={product.image}
+          alt={product.name}
+          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+        />
+        {/* Quick Actions Overlay */}
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-4">
+          <button className="p-2 rounded-full bg-white/90 hover:bg-white transition-colors duration-300">
+            <Heart className="h-5 w-5 text-gray-700" />
+          </button>
+          <button className="p-2 rounded-full bg-white/90 hover:bg-white transition-colors duration-300">
+            <ShoppingCart className="h-5 w-5 text-gray-700" />
+          </button>
+        </div>
+      </div>
+      
+      {/* Product Info */}
+      <div className="p-4">
+        <h3 className="text-lg font-medium text-gray-900 group-hover:text-purple-600 transition-colors duration-300">
+          {product.name}
+        </h3>
+        <p className="mt-1 text-sm text-gray-500">{product.category}</p>
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-lg font-semibold text-purple-600">
+            {formatPrice(product.price)}
+          </span>
+          <span className="text-sm text-gray-500 line-through">
+            {formatPrice(product.originalPrice)}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 };
 
