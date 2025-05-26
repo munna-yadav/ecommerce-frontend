@@ -15,16 +15,25 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import axios from 'axios';
+import axiosInstance from '@/lib/axios';
 
 // Updated order interface to match actual API response
+interface OrderItem {
+  id: number;
+  productName: string;
+  quantity: number;
+  price: number;
+}
+
 interface Order {
   id: number;
   orderDate: string;
   status: string;
   totalAmount: number;
-  shippingAddress: string;
+  shippingAddress: string | null;
   paymentMethod: string;
+  customerId: number;
+  orderItems: OrderItem[];
 }
 
 const Orders = () => {
@@ -65,8 +74,9 @@ const Orders = () => {
       setError(null);
 
       try {
-        // Using the correct API endpoint for orders
-        const response = await axios.get('/api/v1/user/orders');
+        // Using our axiosInstance with automatic Bearer token
+        const response = await axiosInstance.get('/api/v1/user/orders');
+        
         console.log('Orders API response:', response.data);
         
         // Check if response.data is an array directly or if it's nested under an 'orders' property
@@ -99,13 +109,8 @@ const Orders = () => {
     setIsDeleting(true);
     
     try {
-      const token = localStorage.getItem('token');
-      
-      await axios.delete(`/api/v1/user/delete-order/${orderToDelete}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+      // Using axiosInstance that automatically includes the Bearer token
+      await axiosInstance.delete(`/api/v1/user/delete-order/${orderToDelete}`);
       
       // Remove the deleted order from state
       setOrders(orders.filter(order => order.id !== orderToDelete));
@@ -236,12 +241,36 @@ const Orders = () => {
               
               <CardContent className="p-6">
                 <div className="space-y-4">
+                  {/* Order Items Summary */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 p-3 border-b">
+                      <h4 className="font-medium">Order Items</h4>
+                    </div>
+                    <div className="p-3">
+                      <ul className="divide-y">
+                        {order.orderItems?.map((item) => (
+                          <li key={item.id} className="py-2 flex justify-between items-center">
+                            <div>
+                              <p className="font-medium">{item.productName}</p>
+                              <p className="text-sm text-gray-600">
+                                {item.quantity} {item.quantity > 1 ? 'items' : 'item'} × {formatPrice(item.price)}
+                              </p>
+                            </div>
+                            <div className="font-medium">
+                              {formatPrice(item.price * item.quantity)}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-start gap-2">
                       <MapPin className="h-5 w-5 text-gray-500 mt-0.5" />
                       <div>
                         <h4 className="font-medium mb-1">Shipping Address</h4>
-                        <p className="text-gray-600">{order.shippingAddress}</p>
+                        <p className="text-gray-600">{order.shippingAddress || 'Address not provided'}</p>
                       </div>
                     </div>
                     
@@ -258,7 +287,7 @@ const Orders = () => {
                     <Button 
                       variant="link" 
                       className="p-0 text-purple-600 hover:text-purple-800"
-                      onClick={() => navigate(`/order/${order.id}`)}
+                      onClick={() => navigate(`/orders/${order.id}`)}
                     >
                       View Order Details
                     </Button>
